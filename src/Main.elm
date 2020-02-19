@@ -5,7 +5,6 @@ import Html exposing (Html, button, div, text, h2, p, table, th, tr, td, thead, 
 import Html.Events exposing (onClick)
 import List
 import Json.Decode exposing (Decoder, map3, field, list, string, int, decodeString, Error)
-
 import Data exposing (r14Json)
 
 type alias R14 =
@@ -13,6 +12,33 @@ type alias R14 =
     , count: Int
     , percent: Int }
 
+type alias Model = Int
+
+init : () -> (Model, Cmd Msg)
+init _ =
+   (0, Cmd.none)
+
+type Msg = Increment | Decrement
+
+update : Msg -> Model -> (Model, Cmd Msg)
+update msg model =
+  case msg of
+    Increment ->
+      (model + 1, Cmd.none)
+    Decrement ->
+      (model - 1, Cmd.none)
+
+main =
+   Browser.element
+    { init = init
+    , update = update
+    , subscriptions = subscriptions
+    , view = view
+    }
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+  Sub.none
 
 r14Decoder : Decoder (List R14)
 r14Decoder =
@@ -25,10 +51,6 @@ decodeJson : Result Error (List R14)
 decodeJson =
   decodeString r14Decoder r14Json
 
-main =
-  Browser.sandbox { init = 0, update = update, view = view }
-
-type Msg = Increment | Decrement
 
 renderTableRow : R14 -> Html Msg
 renderTableRow r14 =
@@ -58,15 +80,7 @@ renderTable =
         p [] [ text "Unable to parse JSON." ]
       ]
       
-
-update msg model =
-  case msg of
-    Increment ->
-      model + 1
-
-    Decrement ->
-      model - 1
-
+view : Model -> Html Msg
 view model =
   div []
     [ 
