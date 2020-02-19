@@ -12,32 +12,24 @@ type alias R14 =
     , count: Int
     , percent: Int }
 
-type alias Model = Int
+type alias Model = String
 
 init : () -> (Model, Cmd Msg)
 init _ =
-   (0, Cmd.none)
+   ("We are live!", Cmd.none)
 
-type Msg = Increment | Decrement
+type Msg = Live | Down
 
 update : Msg -> Model -> (Model, Cmd Msg)
-update msg model =
+update msg _ =
   case msg of
-    Increment ->
-      (model + 1, Cmd.none)
-    Decrement ->
-      (model - 1, Cmd.none)
-
-main =
-   Browser.element
-    { init = init
-    , update = update
-    , subscriptions = subscriptions
-    , view = view
-    }
+    Live ->
+      ("We are live!", Cmd.none)
+    Down ->
+      ("We are down.", Cmd.none)
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
   Sub.none
 
 r14Decoder : Decoder (List R14)
@@ -84,6 +76,14 @@ view : Model -> Html Msg
 view model =
   div []
     [ 
-      h2 [] [ text "We are live!" ]
+      h2 [] [ text model ]
     , renderTable
     ]
+
+main =
+   Browser.element
+    { init = init
+    , update = update
+    , subscriptions = subscriptions
+    , view = view
+    }
