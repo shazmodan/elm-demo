@@ -1,4 +1,4 @@
-port module Main exposing (..)
+port module Main exposing (renderGraph)
 
 import Browser
 import Html exposing (Html, button, div, text, h1, h3, p, table, th, tr, td, thead, tbody, span, ul, li)
