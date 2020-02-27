@@ -18,7 +18,7 @@ type alias Model = { r14s: List R14 }
 init : () -> (Model, Cmd Msg)
 init _ = 
   case decodeJson of
-    Ok r14List -> ({ r14s = r14List }, Cmd.none)
+    Ok r14List -> ({ r14s = r14List }, renderGraph r14BirthAgesJson)
     Err _ -> ({ r14s = [] }, Cmd.none)
 
 type Msg = Loading | Success | Fail | RenderGraph
@@ -103,8 +103,7 @@ view model =
     [ div [ id "DynamicContent"
         , class "container" 
       ] [ 
-        button [ onClick RenderGraph ] [ text "Render graph" ]
-        , renderTable
+        renderTable
       ]
     ]
 
