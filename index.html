@@ -4,14 +4,53 @@
 <head>
   <meta charset="UTF-8">
   <title>Elm • Åldersrapporten</title>
-  <link rel="stylesheet" href="sveaweb.css">
+  <link rel="stylesheet" type="text/css" href="sveaweb.css">
 </head>
 
 <body>
+  <h1 class="header__reports--nodesc">R14 - Åldersfördelning</h1>
+  <div id="graphByAge" style="clear: both; width: 100%; height: 150px;"></div>
   <main></main>
+  <script language="javascript" type="text/javascript" src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+  <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.min.js"></script>
+  <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.time.min.js"></script>
+  <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.resize.js"></script>
+  <script type="text/javascript">
+    var updateByAgeGraph = function (dataByAgeString) {
+        const dataByAge = JSON.parse(dataByAgeString)
+        var currentYear = (new Date()).getFullYear();
+        // var dataByAge = invoiceeModel.byAge();
+
+        var datasets = [];
+
+        datasets.push(
+            {
+                //label: "Födelseår",
+                color: 'darkblue', lines: { show: true, fill: true },
+                data: dataByAge
+                        .filter(function (f) { return f.year; })
+                        .map(function (f) { return [currentYear - f.year, f.count]; })
+            });
+
+        var options = {
+            xaxis: { tickFormatter: function (val, axis) { return val; } },
+            yaxix: { tickFormatter: function (val, axis) { return formatBigSEK(val); } },
+            grid: { show: true } };
+
+        console.log(datasets)
+        $.plot("#graphByAge", datasets, options);
+    };
+  </script>
+
   <script type="text/javascript" src="elm.js"></script>
   <script>
     var app = Elm.Main.init({ node: document.querySelector('main') })
+
+    // TODO: ports is undefined
+    app.ports.renderGraph.subscribe(function(data) {
+      console.log(data.length)
+      updateByAgeGraph(data)
+    });
   </script>
 </body>
 
