@@ -1,118 +1,224 @@
 port module Main exposing (renderGraph)
 
 import Browser
-import Html exposing (Html, button, div, text, h1, h3, p, table, th, tr, td, thead, tbody, span, ul, li)
-import Html.Events exposing (onClick)
-import Html.Attributes exposing (style, id, class)
+import Html exposing (Html, a, div, p, span, table, tbody, td, text, th, thead, tr)
+import Html.Attributes exposing (class, href, id, style)
+import Http
+import Json.Decode exposing (Decoder, field, int, list, map2, map3, string)
+import Json.Encode as E
 import List
-import Json.Decode exposing (Decoder, map3, field, list, string, int, decodeString, Error)
-import Data exposing (r14AgeGroupJson, r14BirthAgesJson)
 
-type alias R14 =
-    { age_group: String
-    , count: Int
-    , percent: Int }
 
-type alias Model = { r14s: List R14 }
+type alias AgeGroup =
+    { age_group : String
+    , count : Int
+    , percent : Int
+    }
 
-init : () -> (Model, Cmd Msg)
-init _ = 
-  case decodeJson of
-    Ok r14List -> ({ r14s = r14List }, renderGraph r14BirthAgesJson)
-    Err _ -> ({ r14s = [] }, Cmd.none)
 
-type Msg = Loading | Success | Fail | RenderGraph
+type alias BirthAge =
+    , count : Int
+    }
 
-update : Msg -> Model -> (Model, Cmd Msg)
+
+type Model
+    = Failure
+    | Loading
+    | Success (List AgeGroup)
+
+
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( Loading, fetchAllData )
+
+
+fetchAllData : Cmd Msg
+fetchAllData =
+    Cmd.batch
+        [ fetchDataByAgeGroup
+        , fetchDataByBirthAge
+        ]
+
+
+fetchDataByBirthAge : Cmd Msg
+fetchDataByBirthAge =
+    Http.get
+        { url = "/FenixWeb/Data/R14/1137/"
+        , expect = Http.expectJson LoadedBirthAges birthAgeDecoder
+        }
+
+
+fetchDataByAgeGroup : Cmd Msg
+fetchDataByAgeGroup =
+    Http.get
+        { url = "/FenixWeb/Data/R14/1137/ByAgeGroup/"
+        , expect = Http.expectJson LoadedAgeGroups ageGroupDecoder
+        }
+
+
+birthAgeDecoder : Decoder (List BirthAge)
+birthAgeDecoder =
+    list
+        (map2 BirthAge
+            (field "year" int)
+            (field "count" int)
+        )
+
+
+ageGroupDecoder : Decoder (List AgeGroup)
+ageGroupDecoder =
+    list
+        (map3 AgeGroup
+            (field "age_group" string)
+            (field "count" int)
+            (field "percent" int)
+        )
+
+
+birthAgeEncoder : BirthAge -> E.Value
+birthAgeEncoder birthAge =
+    E.object
+        [ ( "year", E.int birthAge.year )
+        , ( "count", E.int birthAge.count )
+        ]
+
+
+birthAgesEncoder : List BirthAge -> E.Value
+birthAgesEncoder r14List =
+    E.list birthAgeEncoder r14List
+
+
+type Msg
+    = LoadedAgeGroups (Result Http.Error (List AgeGroup))
+    | LoadedBirthAges (Result Http.Error (List BirthAge))
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-  case msg of
-    Loading ->
-      ({r14s = []}, Cmd.none)
-    Success -> --TODO: Load JSON from url endpoint
-      ({r14s = []}, Cmd.none)
-    Fail ->
-      ({r14s = []}, Cmd.none)
-    RenderGraph ->
-      (model, renderGraph r14BirthAgesJson)
+    case msg of
+        LoadedAgeGroups result ->
+            case result of
+                Ok r14AgeGroups ->
+                    ( Success r14AgeGroups, fetchDataByBirthAge )
+
+                Err _ ->
+                    ( Failure, Cmd.none )
+
+        LoadedBirthAges result ->
+            case result of
+                Ok r14BirthAges ->
+                    ( model, renderGraph (birthAgesEncoder r14BirthAges) )
+
+                Err _ ->
+                    ( Failure, Cmd.none )
+
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-  Sub.none
-
-r14Decoder : Decoder (List R14)
-r14Decoder =
-  list (map3 R14
-    (field "age_group" string)
-    (field "count" int)
-    (field "percent" int))
-
-decodeJson : Result Error (List R14)
-decodeJson =
-  decodeString r14Decoder r14AgeGroupJson
+    Sub.none
 
 
-renderTableRow : R14 -> Html Msg
+renderTableRow : AgeGroup -> Html Msg
 renderTableRow r14 =
     let
-      maybeBold = if r14.percent > 7 
-        then style "font-weight" "bold" 
-        else style "" ""
+        maybeBold =
+            if r14.percent > 7 then
+                style "font-weight" "bold"
 
-      percent = if r14.percent > 0 
-        then r14.percent |> String.fromInt |> text 
-        else "<1%" |> text
+            else
+                style "" ""
+
+        percent =
+            if r14.percent > 0 then
+                (r14.percent |> String.fromInt) ++ "%" |> text
+
+            else
+                "<1%" |> text
     in
-      tr [] [ 
-        td [ maybeBold
-          , style "text-align" "left" ] [ r14.age_group |> text ]
-        , td [ maybeBold
-          , style "text-align" "right" ] [ percent ]
-        , td [ style "text-align" "right" ] [ r14.count |> String.fromInt |> text ]
-      ]
-
-renderTable : Html Msg
-renderTable =
-  case decodeJson of
-    Ok r14List ->
-      div [ class "card bg-light px-3", id "main" ] [
-        table [ class "table table-condensed table-extra-condensed"
-        , style "clear" "both" 
-        , style "width" "100%"
-        , style "margin-top" "30px" ] [
-          thead [] [
-            tr [] [
-              th [ style "width" "120px"
-              , style "text-align" "left" ] [ text "Åldersgrupp" ]
-              , th [ style "width" "120px"
-              , style "text-align" "right"] [ text "Procent" ]
-              , th [ style "width" "120px"
-              , style "text-align" "right"] [ text "Antal" ]
+    tr []
+        [ td
+            [ maybeBold
+            , style "text-align" "left"
             ]
-          ]
-          , tbody [] (List.map renderTableRow r14List)
+            [ r14.age_group |> text ]
+        , td
+            [ maybeBold
+            , style "text-align" "right"
+            ]
+            [ percent ]
+        , td [ style "text-align" "right" ] [ r14.count |> String.fromInt |> text ]
         ]
-      ]
-    
-    Err _ -> div [] [
-        p [] [ text "Unable to parse JSON." ]
-      ]
-      
+
+
+renderTable : Model -> Html Msg
+renderTable model =
+    case model of
+        Loading ->
+            div []
+                [ p [] [ text "Laddar data..." ]
+                ]
+
+        Failure ->
+            div []
+                [ p [] [ text "Unable to load data from server." ]
+                ]
+
+        Success ageGroups ->
+            div []
+                [ table
+                    [ class "table table-condensed table-extra-condensed"
+                    , style "clear" "both"
+                    , style "width" "100%"
+                    , style "margin-top" "30px"
+                    ]
+                    [ thead []
+                        [ tr []
+                            [ th
+                                [ style "width" "120px"
+                                , style "text-align" "left"
+                                ]
+                                [ text "Åldersgrupp" ]
+                            , th
+                                [ style "width" "120px"
+                                , style "text-align" "right"
+                                ]
+                                []
+                            , th
+                                [ style "width" "120px"
+                                , style "text-align" "right"
+                                ]
+                                [ text "Antal" ]
+                            ]
+                        ]
+                    , tbody [] (List.map renderTableRow ageGroups)
+                    ]
+                ]
+
+
 view : Model -> Html Msg
 view model =
-  div [id "bootstrap-override"]
-    [ div [ id "DynamicContent"
-        , class "container" 
-      ] [ 
-        renderTable
-      ]
-    ]
+    div [ id "bootstrap-override" ]
+        [ div []
+            [ a [ class "pull-right btn btn-sm btn__svea--primary mb-4", href "../../Data/R14/1137/ByAgeGroup/?format=slk" ]
+                [ span [] [ text "Hämta grupperad till Excel" ]
+                ]
+            ]
+        , div []
+            [ a [ class "pull-right btn btn-sm btn__svea--primary mb-4", href "../../Data/R14/1137/?format=slk" ]
+                [ span [] [ text "Hämta till Excel" ]
+                ]
+            ]
+        , renderTable model
+        ]
+
 
 main =
-   Browser.element
-    { init = init
-    , update = update
-    , subscriptions = subscriptions
-    , view = view
-    }
+    Browser.element
+        { init = init
+        , update = update
+        , subscriptions = subscriptions
+        , view = view
+        }
 
-port renderGraph : String -> Cmd msg
+
+port renderGraph : E.Value -> Cmd msg
