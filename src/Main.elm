@@ -17,6 +17,7 @@ type alias AgeGroup =
 
 
 type alias BirthAge =
+    { year : Int
     , count : Int
     }
 
